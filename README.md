@@ -5,6 +5,7 @@
 | 回 | タグ | 内容 |
 |---|---|---|
 | 1 | `x402-01` | Next.js で x402 の有料 API を作り、402 を受け取る（`apps/paid-api`） |
+| 2 | `x402-02` | 上限付きで自動支払いするクライアント（`apps/agent-client`） |
 
 ## 第1回: HTTP 402 を Next.js で動かす
 
@@ -13,6 +14,20 @@
 - 支払いクライアントの最小例は `apps/paid-api/scripts/pay.ts`（第2回の前振り）
 - 実測: ETH 0 の買い手が 0.01 USDC を支払い 200 を取得（tx は run.md）
 - シーケンス図: `docs/diagrams/x402-01-sequence.mmd`、実行記録: `docs/notes/`
+
+## 第2回: 自動で支払うクライアント
+
+```bash
+pnpm buy <url> [--max-per-call <usd>] [--max-total <usd>]   # 既定は 0.01 / 0.05
+pnpm buy http://localhost:3000/api/weather
+pnpm buy https://paid-api-flax.vercel.app/api/weather      # 公開URL（テストネット、$0.01/回）
+```
+
+- 1回あたりの上限は `@x402/fetch` の `spendControls`（SDK の既定は $1）、累計上限は `onBeforePaymentCreation` + `apps/agent-client/.x402-spend.json`（gitignore 済み）
+- 送る `PAYMENT-SIGNATURE` と受け取る `PAYMENT-RESPONSE` をデコードして表示
+- 失敗系の検証用に `/api/flaky`（ハンドラが 500 を返す）と `/api/throw`（throw する）を追加
+- フロー図: `docs/diagrams/x402-02-client-flow.mmd`、実行記録: `docs/notes/x402-02-*.md`
+- 公開 URL: https://paid-api-flax.vercel.app （Vercel。環境変数は `PAY_TO_ADDRESS` のみ。買い手の鍵は置かない）
 
 ## 起動
 

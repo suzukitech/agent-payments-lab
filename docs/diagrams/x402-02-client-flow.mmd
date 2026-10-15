@@ -1,0 +1,15 @@
+flowchart TD
+    A[fetch url] --> B{402?}
+    B -- no --> Z1[return response as is: 200 or 5xx]
+    B -- yes --> C[decode PAYMENT-REQUIRED: accepts]
+    C --> D{amount <= max-per-call?<br/>SDK spendControls, default is 1 USD}
+    D -- no --> S1[throw: stop before signing]
+    D -- yes --> E{spent + amount <= max-total?<br/>onBeforePaymentCreation + .x402-spend.json}
+    E -- no --> S2[abort: stop before signing]
+    E -- yes --> F[sign EIP-3009 authorization<br/>no gas, no tx yet]
+    F --> G[add spent to .x402-spend.json<br/>onAfterPaymentCreation]
+    G --> H[resend with PAYMENT-SIGNATURE]
+    H --> I{status}
+    I -- 200 --> OK[PAYMENT-RESPONSE: tx hash]
+    I -- 402 --> NG[still 402: read error / PAYMENT-RESPONSE<br/>exit 1]
+    I -- 5xx --> ER[handler failed: no settle observed<br/>exit 1]
