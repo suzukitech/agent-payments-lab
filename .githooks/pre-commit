@@ -1,0 +1,2 @@
+#!/bin/sh
+gitleaks git --staged --redact -v || { echo "gitleaks: secrets detected, commit blocked"; exit 1; }
