@@ -27,7 +27,9 @@ curl -i http://localhost:3000/api/free
 curl -i http://localhost:3000/api/weather     # 402 + PAYMENT-REQUIRED
 ```
 
-支払いまで試すには買い手アドレスに Base Sepolia の ETH と USDC（テスト用）を入れ、`cd apps/paid-api && pnpm pay`。
+支払いまで試すには買い手アドレスに Base Sepolia の USDC（テスト用）のみを入れ、`cd apps/paid-api && pnpm pay`。ETH は不要（実測: 買い手 ETH 0 で支払い成功）。`jq` が必要（`brew install jq`）。
+
+faucet は2経路: [Circle](https://faucet.circle.com)（1回 20 USDC、同じネットワークと資産の組で 2 時間に 1 回）と [CDP Faucet](https://docs.cdp.coinbase.com/faucets/introduction/welcome)（USDC は1回 1、24 時間に 10 回まで。要ログイン）。
 
 ## .env
 

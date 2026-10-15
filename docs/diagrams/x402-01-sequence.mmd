@@ -9,7 +9,8 @@ sequenceDiagram
     B->>S: GET /api/weather + PAYMENT-SIGNATURE header
     S->>F: POST /verify
     F-->>S: isValid (ng: invalid_exact_evm_insufficient_balance when buyer has no USDC; observed)
-    S->>S: run handler (status < 400 only)
+    S->>S: run handler
+    Note over S: settle only when the response status is below 400
     S->>F: POST /settle
     F->>U: transferWithAuthorization (facilitator pays gas; buyer ETH was 0)
     U-->>F: tx hash
