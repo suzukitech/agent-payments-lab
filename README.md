@@ -24,6 +24,7 @@ pnpm buy https://paid-api-flax.vercel.app/api/weather      # 公開URL（テス�
 ```
 
 - 1回あたりの上限は `@x402/fetch` の `spendControls`（SDK の既定は $1）、累計上限は `onBeforePaymentCreation` + `apps/agent-client/.x402-spend.json`（gitignore 済み）
+- 終了コードは 0（200）、1（200 以外）、2（署名前に停止）。`pnpm buy` 経由だと 2 が 1 に潰れるので、見たいときは `cd apps/agent-client && ./node_modules/.bin/tsx --env-file=../../.env src/buy.ts <url>`（`pnpm exec` でも潰れる）
 - 送る `PAYMENT-SIGNATURE` と受け取る `PAYMENT-RESPONSE` をデコードして表示
 - 失敗系の検証用に `/api/flaky`（ハンドラが 500 を返す）と `/api/throw`（throw する）を追加
 - フロー図: `docs/diagrams/x402-02-client-flow.mmd`、実行記録: `docs/notes/x402-02-*.md`

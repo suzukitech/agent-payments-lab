@@ -25,6 +25,8 @@ const readSpent = (): bigint => {
 };
 const usdc = (atomic: string | bigint) => (Number(atomic) / 1e6).toFixed(6);
 
+const USDC_BASE_SEPOLIA = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+
 const account = privateKeyToAccount(process.env.BUYER_PRIVATE_KEY as `0x${string}`);
 
 const client = new x402Client()
@@ -32,6 +34,10 @@ const client = new x402Client()
   // SDK default is "$1" per payment even if you set nothing. Set it explicitly and lower.
   .setSpendControls({ maxAmountPerPayment: `$${maxPerCall}` })
   .onBeforePaymentCreation(async ({ selectedRequirements }) => {
+    // The total counts USDC atomic units only (6 decimals), so refuse any other asset.
+    if (selectedRequirements.asset.toLowerCase() !== USDC_BASE_SEPOLIA.toLowerCase()) {
+      return { abort: true, reason: `max-total counts USDC (6 decimals) only; got asset ${selectedRequirements.asset}` };
+    }
     const spent = readSpent();
     const amount = BigInt(selectedRequirements.amount);
     if (spent + amount > maxTotalAtomic) {
