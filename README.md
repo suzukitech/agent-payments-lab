@@ -11,6 +11,7 @@
 - `GET /api/free` は 200、`GET /api/weather` は `withX402` で保護（$0.01、`eip155:84532`）
 - ファシリテーターは `https://x402.org/facilitator`（テストネット用）
 - 支払いクライアントの最小例は `apps/paid-api/scripts/pay.ts`（第2回の前振り）
+- 実測: ETH 0 の買い手が 0.01 USDC を支払い 200 を取得（tx は run.md）
 - シーケンス図: `docs/diagrams/x402-01-sequence.mmd`、実行記録: `docs/notes/`
 
 ## 起動

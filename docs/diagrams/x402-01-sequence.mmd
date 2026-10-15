@@ -5,14 +5,13 @@ sequenceDiagram
     participant U as USDC contract (Base Sepolia)
     B->>S: GET /api/weather
     S-->>B: 402 + PAYMENT-REQUIRED header (base64 JSON: amount 10000, USDC, payTo)
-    Note over B,U: observed locally up to the verify step; settle/200 steps below are from the spec (unfunded buyer, see log)
     Note over B: Sign EIP-3009 transferWithAuthorization (no gas, no tx yet)
     B->>S: GET /api/weather + PAYMENT-SIGNATURE header
     S->>F: POST /verify
-    F-->>S: isValid (ng: invalid_exact_evm_insufficient_balance when buyer has no USDC)
+    F-->>S: isValid (ng: invalid_exact_evm_insufficient_balance when buyer has no USDC; observed)
     S->>S: run handler (status < 400 only)
     S->>F: POST /settle
-    F->>U: transferWithAuthorization (facilitator pays gas)
+    F->>U: transferWithAuthorization (facilitator pays gas; buyer ETH was 0)
     U-->>F: tx hash
     F-->>S: success + transaction
     S-->>B: 200 + JSON + PAYMENT-RESPONSE header
