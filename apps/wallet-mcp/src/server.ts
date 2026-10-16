@@ -35,7 +35,10 @@ const account = privateKeyToAccount(key as `0x${string}`);
 
 // Limit logic copied from apps/agent-client/src/buy.ts (round 2). One x402Client is shared by both tools,
 // so (a) MCP and (b) HTTP go through the same checks and the same ledger.
-// ponytail: read-modify-write on spend.json is not locked; add a lock if tool calls ever run concurrently.
+// Check + reservation happen in one synchronous block of onBeforePaymentCreation (no await between reading and writing
+// spend.json), so concurrent tool calls on this event loop cannot interleave there. The reserved amount is rolled back if
+// signing fails. ponytail: single process only; a second wallet-mcp on the same spend.json would need a file lock.
+const writeSpent = (v: bigint) => writeFileSync(SPEND_FILE, JSON.stringify({ spentAtomic: v.toString() }) + "\n", { mode: 0o600 });
 const payer = new x402Client()
   .register("eip155:84532", new ExactEvmScheme(account))
   .setSpendControls({ maxAmountPerPayment: `$${config.maxPerCall}` })
@@ -48,10 +51,11 @@ const payer = new x402Client()
     if (spent + amount > maxTotalAtomic) {
       return { abort: true, reason: `max-total ${usdc(maxTotalAtomic)} USDC would be exceeded (spent ${usdc(spent)} + ${usdc(amount)})` };
     }
+    writeSpent(spent + amount); // reserve now (worst-case commitment, as in buy.ts)
   })
-  // Count at signing time (worst-case commitment), as in buy.ts.
-  .onAfterPaymentCreation(async ({ selectedRequirements }) => {
-    writeFileSync(SPEND_FILE, JSON.stringify({ spentAtomic: (readSpent() + BigInt(selectedRequirements.amount)).toString() }) + "\n", { mode: 0o600 });
+  // Signing failed after the reservation: give the reservation back. Not called when the check above aborts.
+  .onPaymentCreationFailure(async ({ selectedRequirements }) => {
+    writeSpent(readSpent() - BigInt(selectedRequirements.amount));
   });
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };

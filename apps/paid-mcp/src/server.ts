@@ -27,14 +27,25 @@ function buildServer() {
   return s;
 }
 
-// Stateless: a fresh server + transport per POST.
+// Stateless: a fresh server + transport per POST. The transport reads the body itself: malformed JSON -> 400, over
+// MAX_BODY -> 413, bad Host header -> 403 (DNS rebinding protection; the SDK marks these options deprecated in favour of
+// external middleware, but they are still the least code for a loopback-only server).
+const MAX_BODY = 64 * 1024;
 createServer(async (req, res) => {
   if (req.url !== "/mcp" || req.method !== "POST") { res.writeHead(405).end(); return; }
-  const chunks: Buffer[] = [];
-  for await (const c of req) chunks.push(c as Buffer);
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    maxRequestBodySize: MAX_BODY,
+    enableDnsRebindingProtection: true,
+    allowedHosts: [`127.0.0.1:${PORT}`, `localhost:${PORT}`],
+  });
   const s = buildServer();
   res.on("close", () => { transport.close(); s.close(); });
-  await s.connect(transport);
-  await transport.handleRequest(req, res, JSON.parse(Buffer.concat(chunks).toString()));
+  try {
+    await s.connect(transport);
+    await transport.handleRequest(req, res);
+  } catch (e) {
+    console.error("paid-mcp: request failed:", e);
+    if (!res.headersSent) res.writeHead(400, { "content-type": "application/json" }).end('{"error":"bad request"}');
+  }
 }).listen(PORT, "127.0.0.1", () => console.error(`paid-mcp: http://127.0.0.1:${PORT}/mcp`));
