@@ -24,9 +24,13 @@ const config = JSON.parse(readFileSync(join(HOME, "config.json"), "utf8")) as { 
 const maxTotalAtomic = BigInt(Math.round(Number(config.maxTotal) * 1e6)); // USDC: 6 decimals
 
 const SPEND_FILE = join(HOME, "spend.json");
+// Fail-closed: a missing file is initialised to 0 below at startup; a file that is deleted later, corrupt or negative throws (no payment).
 const readSpent = (): bigint => {
-  try { return BigInt(JSON.parse(readFileSync(SPEND_FILE, "utf8")).spentAtomic); } catch { return 0n; }
+  const v = BigInt(JSON.parse(readFileSync(SPEND_FILE, "utf8")).spentAtomic);
+  if (v < 0n) throw new Error("negative spentAtomic");
+  return v;
 };
+const spentForMsg = () => { try { return usdc(readSpent()); } catch { return "unreadable"; } };
 const usdc = (atomic: string | bigint) => (Number(atomic) / 1e6).toFixed(6);
 if (!existsSync(SPEND_FILE)) writeFileSync(SPEND_FILE, '{"spentAtomic":"0"}\n', { mode: 0o600 });
 chmodSync(SPEND_FILE, 0o600);
@@ -46,7 +50,8 @@ const payer = new x402Client()
     if (selectedRequirements.asset.toLowerCase() !== USDC_BASE_SEPOLIA.toLowerCase()) {
       return { abort: true, reason: `max-total counts USDC (6 decimals) only; got asset ${selectedRequirements.asset}` };
     }
-    const spent = readSpent();
+    let spent: bigint;
+    try { spent = readSpent(); } catch (e) { return { abort: true, reason: `ledger ${SPEND_FILE} unreadable, refusing to pay: ${e instanceof Error ? e.message : String(e)}` }; }
     const amount = BigInt(selectedRequirements.amount);
     if (spent + amount > maxTotalAtomic) {
       return { abort: true, reason: `max-total ${usdc(maxTotalAtomic)} USDC would be exceeded (spent ${usdc(spent)} + ${usdc(amount)})` };
@@ -64,14 +69,14 @@ const fail = (msg: string): ToolResult => ({ content: [{ type: "text", text: msg
 
 // Wrap a purchase: report this call's cost and the cumulative total; any refusal becomes a tool error.
 async function run(buy: () => Promise<{ result: unknown; tx?: string }>): Promise<ToolResult> {
-  const before = readSpent();
   try {
+    const before = readSpent();
     const { result, tx } = await buy();
     const after = readSpent();
     return ok({ result, tx, paidUsdc: usdc(after - before), totalSpentUsdc: usdc(after), maxTotalUsdc: usdc(maxTotalAtomic) });
   } catch (e) {
     console.error("purchase failed:", e);
-    return fail(`not paid or failed: ${e instanceof Error ? e.message : String(e)} (spent so far ${usdc(readSpent())} of ${usdc(maxTotalAtomic)} USDC)`);
+    return fail(`not paid or failed: ${e instanceof Error ? e.message : String(e)} (spent so far ${spentForMsg()} of ${usdc(maxTotalAtomic)} USDC)`);
   }
 }
 
